@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Démo – Saisie vocale avec la Web Speech API</title>
+    <style>
+      :root {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        color: #111827;
+        background: #f3f4f6;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        padding: 24px;
+      }
+      .chat {
+        width: 100%;
+        max-width: 560px;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        display: flex;
+        flex-direction: column;
+        height: 82vh;
+        overflow: hidden;
+      }
+      h1 {
+        font-size: 16px;
+        margin: 0;
+        padding: 14px 18px;
+        background: #4f46e5;
+        color: #fff;
+      }
+      #messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background: #f9fafb;
+      }
+      .msg {
+        max-width: 80%;
+        padding: 10px 14px;
+        border-radius: 14px;
+        font-size: 14px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+      }
+      .user {
+        align-self: flex-end;
+        background: #4f46e5;
+        color: #fff;
+        border-bottom-right-radius: 4px;
+      }
+      .bot {
+        align-self: flex-start;
+        background: #e5e7eb;
+        color: #111827;
+        border-bottom-left-radius: 4px;
+      }
+      .hint {
+        align-self: center;
+        font-size: 12px;
+        color: #9ca3af;
+      }
+      form {
+        display: flex;
+        gap: 8px;
+        padding: 12px;
+        border-top: 1px solid #e5e7eb;
+        background: #fff;
+      }
+      #input {
+        flex: 1;
+        border: 1px solid #d1d5db;
+        border-radius: 24px;
+        padding: 10px 16px;
+        font-size: 14px;
+        outline: none;
+      }
+      #input:focus { border-color: #4f46e5; }
+      button {
+        border: none;
+        border-radius: 50%;
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition: background 0.2s, transform 0.1s;
+      }
+      button:active { transform: scale(0.94); }
+      #speaker {
+        background: #e0e7ff;
+        color: #4f46e5;
+      }
+      #speaker.muted {
+        background: #f3f4f6;
+        color: #9ca3af;
+        text-decoration: line-through;
+      }
+      #mic {
+        background: #e0e7ff;
+        color: #4f46e5;
+      }
+      #mic.listening {
+        background: #ef4444;
+        color: #fff;
+        animation: pulse 1.2s infinite;
+      }
+      #send {
+        background: #4f46e5;
+        color: #fff;
+      }
+      @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+        50% { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+      }
+      #status {
+        font-size: 12px;
+        color: #6b7280;
+        padding: 4px 18px 10px;
+        min-height: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="chat">
+      <h1>🗣️ Chat vocal (Web Speech API – aller-retour complet)</h1>
+      <div id="messages"></div>
+      <div id="status"></div>
+      <form id="form" autocomplete="off">
+        <button type="button" id="mic" title="Dicter">🎤</button>
+        <input id="input" placeholder="Écrivez ou cliquez sur le micro…" />
+        <button type="button" id="speaker" title="Activer / couper la réponse vocale">🔊</button>
+        <button type="submit" id="send" title="Envoyer">➤</button>
+      </form>
+    </main>
+
+    <script>
+      const messagesEl = document.getElementById("messages");
+      const inputEl = document.getElementById("input");
+      const micBtn = document.getElementById("mic");
+      const statusEl = document.getElementById("status");
+      const form = document.getElementById("form");
+      const speakerBtn = document.getElementById("speaker");
+
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      // ---- Synthèse vocale : état (déclaré avant le premier message) ----
+      let voiceEnabled = true;
+      let frVoice = null;
+
+      addMessage("bot", "Bonjour ! Je suis un bot de démonstration (écho). Cliquez sur 🎤 et parlez, ou tapez votre message.");
+      addMessage("hint", "Astuce : la reconnaissance vocale nécessite Chrome ou Edge et l'autorisation du micro.");
+
+      // ---- Chat (écho de démonstration) ----
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text) return;
+        inputEl.value = "";
+        addMessage("user", text);
+        setTimeout(
+          () => addMessage("bot", "Vous avez dit : « " + text + " ».\nRemplacez ce bloc par l'appel à votre API d'assistant."),
+          400
+        );
+      });
+
+      function addMessage(role, text) {
+        const div = document.createElement("div");
+        div.className = "msg " + role;
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        if (role === "bot") speak(text);
+      }
+
+      // ---- Synthèse vocale (texte -> voix) ----
+
+      speakerBtn.addEventListener("click", () => {
+        voiceEnabled = !voiceEnabled;
+        speakerBtn.classList.toggle("muted", !voiceEnabled);
+        if (!voiceEnabled) speechSynthesis.cancel();
+        statusEl.textContent = voiceEnabled
+          ? "🔊 Réponses vocales activées"
+          : "🔇 Réponses vocales coupées";
+        setTimeout(() => { statusEl.textContent = ""; }, 2000);
+      });
+
+      // Cherche une voix française installée sur le système
+      function pickFrenchVoice() {
+        const voices = speechSynthesis.getVoices();
+        frVoice =
+          voices.find((v) => v.lang === "fr-FR" && v.localService) ||
+          voices.find((v) => v.lang.startsWith("fr")) ||
+          null;
+      }
+      if ("speechSynthesis" in window) {
+        pickFrenchVoice();
+        // La liste des voix peut arriver de façon asynchrone
+        speechSynthesis.onvoiceschanged = pickFrenchVoice;
+      }
+
+      function speak(text) {
+        if (!voiceEnabled || !("speechSynthesis" in window)) return;
+        // On enlève la ligne "Remplacez ce bloc..." (uniquement pour la démo)
+        const clean = text.split("\n")[0];
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.lang = "fr-FR";
+        if (frVoice) utterance.voice = frVoice;
+        utterance.rate = 1.0;   // vitesse (0.5 -> 2)
+        utterance.pitch = 1.0;  // tonalité (0 -> 2)
+        speechSynthesis.cancel(); // évite le chevauchement
+        speechSynthesis.speak(utterance);
+      }
+
+      // ---- Reconnaissance vocale ----
+      if (!SpeechRecognition) {
+        statusEl.textContent = "⚠️ Web Speech API non disponible dans ce navigateur (essayez Chrome ou Edge).";
+        micBtn.disabled = true;
+      } else {
+        const recognition = new SpeechRecognition();
+        recognition.lang = "fr-FR";
+        recognition.continuous = true;      // continue d'écouter jusqu'à l'arrêt
+        recognition.interimResults = true;  // affiche le texte au fil de la parole
+
+        let listening = false;
+        let finalTranscript = "";
+
+        recognition.onresult = (event) => {
+          let interim = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const res = event.results[i];
+            if (res.isFinal) {
+              finalTranscript += res[0].transcript;
+            } else {
+              interim += res[0].transcript;
+            }
+          }
+          // Affiche le texte provisoire dans le champ, au fil de la parole
+          inputEl.value = finalTranscript + interim;
+        };
+
+        recognition.onstart = () => {
+          listening = true;
+          micBtn.classList.add("listening");
+          micBtn.textContent = "⏹";
+          statusEl.textContent = "🎙️ J'écoute…";
+        };
+
+        recognition.onend = () => {
+          listening = false;
+          micBtn.classList.remove("listening");
+          micBtn.textContent = "🎤";
+          statusEl.textContent = "";
+        };
+
+        recognition.onerror = (event) => {
+          statusEl.textContent =
+            event.error === "not-allowed"
+              ? "❌ Accès au micro refusé. Autorisez le microphone dans le navigateur."
+              : "⚠️ Erreur : " + event.error;
+        };
+
+        micBtn.addEventListener("click", () => {
+          if (listening) {
+            recognition.stop();
+          } else {
+            finalTranscript = "";
+            inputEl.value = "";
+            recognition.start();
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

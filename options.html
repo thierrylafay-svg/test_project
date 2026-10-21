@@ -1,0 +1,44 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Options — Assistant de navigation</title>
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; max-width: 520px; margin: 40px auto; color: #1a1a2e; }
+    h1 { font-size: 18px; }
+    p.aide { color: #666; font-size: 13px; }
+    label { display: block; margin: 16px 0 6px; font-weight: 600; }
+    input[type=password], input[type=text] {
+      width: 100%; box-sizing: border-box; padding: 8px;
+      border: 1px solid #c9c9d6; border-radius: 8px;
+    }
+    button {
+      margin-top: 14px; padding: 8px 18px; background: #fa541c; color: #fff;
+      border: 0; border-radius: 8px; cursor: pointer; font-size: 14px;
+    }
+    button.afficher { background: #f0f0f5; color: #1a1a2e; border: 1px solid #c9c9d6; margin-left: 8px; }
+    #statut { margin-top: 12px; font-weight: 600; }
+    #statut.ok { color: #0a7d33; }
+    #statut.ko { color: #c0392b; }
+  </style>
+</head>
+<body>
+  <h1>🧭 Assistant de navigation — Configuration</h1>
+
+  <label for="cle">Clé API Mistral</label>
+  <input id="cle" type="password" placeholder="sk-…" autocomplete="off">
+  <button class="afficher" id="basculer" type="button">Afficher</button>
+
+  <p class="aide">
+    Obtenez une clé sur <b>console.mistral.ai</b> → « API Keys » → « Create new key ».
+    Attention : la clé n'est affichée qu'une seule fois à sa création, copiez-la immédiatement.
+    Elle est stockée localement dans votre navigateur (chrome.storage.local), jamais dans le code.
+  </p>
+
+  <button id="enregistrer" type="button">Enregistrer</button>
+  <span id="statut"></span>
+
+  <script src="options.js"></script>
+</body>
+</html>

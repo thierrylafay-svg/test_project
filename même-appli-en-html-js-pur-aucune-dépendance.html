@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Démo interactive — JS natif</title>
+<style>
+  :root { font-family: system-ui, -apple-system, sans-serif; color: #1e293b; background: #f1f5f9; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; }
+  .wrap { max-width: 900px; margin: 0 auto; display: grid; gap: 20px; }
+  .card { background: #fff; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.12); padding: 20px; }
+  .card h2 { margin: 0 0 14px; font-size: 1.05rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+  input[type=text], input[type=email] {
+    width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .95rem;
+  }
+  input:focus { outline: 2px solid #3b82f6; outline-offset: 0; border-color: transparent; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button {
+    padding: 9px 16px; border: none; border-radius: 8px; background: #1e293b; color: #fff;
+    font-size: .92rem; cursor: pointer; transition: transform .05s;
+  }
+  button:hover { background: #334155; }
+  button:active { transform: scale(.97); }
+  button.ghost { background: #fff; color: #334155; border: 1px solid #cbd5e1; }
+  .urlbar { display: flex; gap: 10px; }
+  .urlbar input { flex: 1; font-family: ui-monospace, monospace; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .78rem; border: 1px solid #86efac; color: #16a34a; background: #f0fdf4; }
+  .icon-chip {
+    display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid #e2e8f0;
+    border-radius: 10px; background: #fff; cursor: grab; font-size: .9rem; box-shadow: 0 1px 2px rgba(0,0,0,.06);
+  }
+  .icon-chip:active { cursor: grabbing; }
+  #dropzone {
+    min-height: 110px; border: 2px dashed #94a3b8; border-radius: 12px; padding: 14px;
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: #f8fafc; transition: .15s;
+  }
+  #dropzone.over { border-color: #60a5fa; background: #eff6ff; }
+  .dropped { display: flex; flex-direction: column; align-items: center; gap: 2px; background: #fff;
+    border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 14px; font-size: 1.6rem; }
+  .dropped small { font-size: .68rem; color: #64748b; }
+  .hint { color: #94a3b8; font-size: .85rem; }
+  #target {
+    height: 110px; width: 100%; border: 2px solid #cbd5e1; border-radius: 12px; background: #f8fafc;
+    font-size: 1.05rem; font-weight: 600; color: #475569; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; user-select: none; transition: .15s;
+  }
+  #target.waiting { border-color: #fbbf24; background: #fffbeb; color: #b45309; }
+  .big { font-size: 2.4rem; font-weight: 700; color: #2563eb; }
+  .hist { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { padding: 3px 10px; border-radius: 999px; font-size: .78rem; background: #1e293b; color: #fff; }
+  .pill.slow { background: #dc2626; }
+  label { font-size: .85rem; font-weight: 600; color: #475569; display: block; margin: 12px 0 5px; }
+  h1 { text-align: center; margin: 0 0 6px; }
+  .sub { text-align: center; color: #64748b; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Page interactive — 100 % JavaScript natif</h1>
+    <p class="sub">Aucune librairie, aucun build : un simple fichier HTML + JS</p>
+  </div>
+
+  <div class="card">
+    <div class="urlbar">
+      <input id="url" type="text" placeholder="Entrez une URL…" value="https://exemple.com" />
+      <button id="btnLoad">Charger</button>
+    </div>
+    <div id="urlStatus" class="row" style="margin-top:10px; display:none">
+      <span class="badge">✓ chargée</span>
+      <span class="hint" id="urlEcho" style="font-family:ui-monospace,monospace"></span>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>📝 Champs à remplir</h2>
+      <label for="nom">Nom</label>
+      <input id="nom" type="text" placeholder="Votre nom…" />
+      <label for="email">E-mail</label>
+      <input id="email" type="email" placeholder="vous@exemple.fr" />
+      <label>Zoom : <span id="zoomVal">100 %</span></label>
+      <input id="zoom" type="range" min="25" max="200" value="100" step="5" style="width:100%" />
+      <div class="row" style="margin-top:16px">
+        <button class="ghost" id="moins">−</button>
+        <span id="compteur" style="font-size:1.5rem;font-weight:700;min-width:36px;text-align:center">0</span>
+        <button id="plus">+</button>
+        <button class="ghost" id="reset" style="margin-left:auto">Réinitialiser</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🖱️ Glisser-déposer d'icônes</h2>
+      <p class="hint">Glissez les icônes vers la zone pointillée :</p>
+      <div id="palette" class="row" style="margin:10px 0"></div>
+      <div id="dropzone"><span class="hint">Déposez les icônes ici 👇</span></div>
+      <p class="hint" style="margin-top:8px">Double-clic sur une icône déposée pour la retirer</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>⏱️ Temps de réaction (double-clic)</h2>
+    <div class="grid2">
+      <div id="target">Cliquez ici 🎯</div>
+      <div style="text-align:center">
+        <div id="mesure" class="hint">Double-clic mesuré : —</div>
+        <div id="verdict" class="hint" style="margin-top:6px"></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div id="hist" class="hist"></div>
+      <span class="hint" id="moyenne" style="margin-left:auto"></span>
+    </div>
+    <div style="margin-top:10px"><button class="ghost" id="clearHist">Effacer l'historique</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+/* ---------- Barre d'URL ---------- */
+$("btnLoad").addEventListener("click", () => {
+  let u = $("url").value.trim();
+  if (!/^https?:\/\//.test(u)) u = "https://" + u;
+  $("urlEcho").textContent = u;
+  $("urlStatus").style.display = "flex";
+});
+$("url").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btnLoad").click(); });
+
+/* ---------- Formulaire + compteur ---------- */
+$("zoom").addEventListener("input", () => { $("zoomVal").textContent = $("zoom").value + " %"; });
+let compteur = 0;
+const setCompteur = (v) => { compteur = v; $("compteur").textContent = v; };
+$("plus").addEventListener("click", () => setCompteur(compteur + 1));
+$("moins").addEventListener("click", () => setCompteur(compteur - 1));
+$("reset").addEventListener("click", () => { $("nom").value = ""; $("email").value = ""; setCompteur(0); });
+
+/* ---------- Glisser-déposer ---------- */
+const ICONS = [
+  { id: "home", emoji: "🏠", label: "Accueil" },
+  { id: "search", emoji: "🔍", label: "Recherche" },
+  { id: "user", emoji: "👤", label: "Profil" },
+  { id: "cart", emoji: "🛒", label: "Panier" },
+  { id: "mail", emoji: "✉️", label: "Messages" },
+  { id: "gear", emoji: "⚙️", label: "Réglages" },
+];
+const palette = $("palette"), dropzone = $("dropzone");
+const dropped = new Set();
+
+function rendrePalette() {
+  palette.innerHTML = "";
+  ICONS.filter((i) => !dropped.has(i.id)).forEach((icon) => {
+    const chip = document.createElement("div");
+    chip.className = "icon-chip";
+    chip.draggable = true;
+    chip.innerHTML = `<span>${icon.emoji}</span><span>${icon.label}</span>`;
+    chip.addEventListener("dragstart", (e) => e.dataTransfer.setData("text/plain", icon.id));
+    palette.appendChild(chip);
+  });
+}
+
+function rendreDropzone() {
+  dropzone.innerHTML = "";
+  if (dropped.size === 0) {
+    dropzone.innerHTML = '<span class="hint">Déposez les icônes ici 👇</span>';
+    return;
+  }
+  ICONS.filter((i) => dropped.has(i.id)).forEach((icon) => {
+    const el = document.createElement("div");
+    el.className = "dropped";
+    el.title = "Double-clic pour retirer";
+    el.innerHTML = `${icon.emoji}<small>${icon.label}</small>`;
+    el.addEventListener("dblclick", () => { dropped.delete(icon.id); rendreDropzone(); rendrePalette(); });
+    dropzone.appendChild(el);
+  });
+}
+
+dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("over"); });
+dropzone.addEventListener("dragleave", () => dropzone.classList.remove("over"));
+dropzone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropzone.classList.remove("over");
+  const id = e.dataTransfer.getData("text/plain");
+  const icon = ICONS.find((i) => i.id === id);
+  if (icon && !dropped.has(id)) { dropped.add(id); rendreDropzone(); rendrePalette(); }
+});
+rendrePalette(); rendreDropzone();
+
+/* ---------- Temps de réaction double-clic ---------- */
+let dernierClic = null, enAttente = false, historique = [];
+
+function verdict(d) {
+  if (d < 200) return "⚡ double-clic très rapide";
+  if (d < 500) return "✓ double-clic standard (< 500 ms)";
+  if (d < 1000) return "⚠ lent : le navigateur ne le détecterait peut-être pas comme un double-clic";
+  return "✗ trop lent : deux clics distincts";
+}
+
+$("target").addEventListener("click", () => {
+  const t = performance.now();
+  if (enAttente) {
+    const delai = Math.round(t - dernierClic);
+    enAttente = false;
+    historique.push(delai);
+    $("mesure").innerHTML = `Double-clic mesuré : <span class="big">${delai}</span> ms`;
+    $("verdict").textContent = verdict(delai);
+    const pill = document.createElement("span");
+    pill.className = "pill" + (delai >= 500 ? " slow" : "");
+    pill.textContent = delai + " ms";
+    $("hist").appendChild(pill);
+    $("moyenne").textContent = "Moyenne : " +
+      Math.round(historique.reduce((a, b) => a + b, 0) / historique.length) + " ms";
+    $("target").textContent = "Cliquez ici 🎯";
+    $("target").classList.remove("waiting");
+  } else {
+    enAttente = true;
+    dernierClic = t;
+    $("target").textContent = "Maintenant, cliquez à nouveau ! 👆";
+    $("target").classList.add("waiting");
+  }
+});
+$("clearHist").addEventListener("click", () => {
+  historique = []; enAttente = false;
+  $("hist").innerHTML = ""; $("moyenne").textContent = "";
+  $("mesure").textContent = "Double-clic mesuré : —"; $("verdict").textContent = "";
+  $("target").textContent = "Cliquez ici 🎯"; $("target").classList.remove("waiting");
+});
+</script>
+</body>
+</html>
